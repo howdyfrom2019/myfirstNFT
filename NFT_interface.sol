@@ -137,10 +137,10 @@ contract IcyJustices is ERC721Metadata, ERC721 {
     mapping(uint256 => address) _operatorByTokenId;
     mapping(address => mapping(address => bool)) _operatorsByOwner;
     uint256 _totalTokenCount = 0;
-    address owner;
+    address _owner;
 
     constructor() {
-        owner = msg.sender;
+        _owner = msg.sender;
     }
 
     function name() external override view returns(string memory) {
@@ -166,7 +166,7 @@ contract IcyJustices is ERC721Metadata, ERC721 {
     }
 
     function balanceOf(address owner) external override view returns (uint256) {
-        return owner.balance;
+        return _balanceByOwner[owner];
     }
 
 
@@ -175,37 +175,67 @@ contract IcyJustices is ERC721Metadata, ERC721 {
     }
 
 
-    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) external override payable {
+    function safeTransferFrom(address from, address to, uint256 tokenId, bytes memory data) public override payable {
+        //todo, 예외처리가 필요함.
+        //from == to 이면 ㄴ안됨.
+        // tokenId가 진짜 발행이 됐나? 소유한 사람이 있는가?
+        // from이 token을 소유했는가?
+        //from이 소유주가 아니라면, 이 토큰에 대해서 권한 위임을 받았는가?
+        // token이 소유주로부터 모든 전권을 ㄹ받았는가?
+        //to가 유효한 address인가?
 
+        require(from == to, "can't send to same account");
+        require(_ownerByTokenId[tokenId] != Address(0), "this token isn't issued");
+        require(_ownerByTokenId[tokenId] == from || _operatorByTokenId[tokenId] != Address(0), "you aren't token owner");
+        require(isApprovedForAll(from, _operatorByTokenId[tokenId]), "this token isn't got all auths");
+        require(web3.utils.isAddress(to), "this address is not valid");
+        // external은 내부 함수를 호출할 수 없기 때문에 public으로 전환해준다.
+        _balanceByOwner[from]--;
+        _balanceByOwner[to]++;
+        _ownerByTokenId[tokenId] = to;
+        //수수료 처리
     }
 
 
     function safeTransferFrom(address from, address to, uint256 tokenId) external override payable {
-
+        safeTransferFrom(from, to, tokenId, "");
     }
 
 
     function transferFrom(address from, address to, uint256 tokenId) external override payable {
-
+        safeTransferFrom(from, to, tokenId, "");
     }
 
 
     function approve(address approved, uint256 tokenId) external override payable {
+        require(_operatorByTokenId[tokenId] == address(0), "already approved");
+        _operatorByTokenId[tokenId] = approved;
 
+        emit Approval(msg.sender, approved, tokenId);
     }
 
 
     function setApprovalForAll(address operator, bool approved) external override {
+        address owner = msg.sender;
+        _operatorsByOwner[operator][operator] = approved;
 
+        emit ApprovalForAll(owner, operator, approved);
     }
 
 
     function getApproved(uint256 tokenId) external override view returns (address) {
-
+        return _operatorByTokenId[tokenId];
     }
 
 
     function isApprovedForAll(address owner, address operator) external override view returns (bool) {
+        return _operatorsByOwner[owner][operator];
+    }
 
+    function supportsInterface(bytes4 interfaceID) external override view returns (bool) {
+        return (
+            type(ERC721).interfaceId == interfaceID ||
+            type(ERC721Metadata).interfaceId == interfaceID
+        );
     }
 }
