@@ -157,6 +157,11 @@ contract IcyJustices is ERC721Metadata, ERC721 {
     }
 
     function mint(address to, uint256 tokenId, string memory uri) public {
+        //to가 유효한 address인가?
+        //tokenId가 이미 발행되어있는가? 이미 소유주가 있는가?
+
+        require(to == address(0), "address is not valid");
+        require(_ownerByTokenId[tokenId] != address(0), "this is not issued");
         //owner check;
         _ownerByTokenId[tokenId] = to;
         _balanceByOwner[to]++;
@@ -184,16 +189,21 @@ contract IcyJustices is ERC721Metadata, ERC721 {
         // token이 소유주로부터 모든 전권을 ㄹ받았는가?
         //to가 유효한 address인가?
 
-        require(from == to, "can't send to same account");
-        require(_ownerByTokenId[tokenId] != Address(0), "this token isn't issued");
-        require(_ownerByTokenId[tokenId] == from || _operatorByTokenId[tokenId] != Address(0), "you aren't token owner");
-        require(isApprovedForAll(from, _operatorByTokenId[tokenId]), "this token isn't got all auths");
-        require(web3.utils.isAddress(to), "this address is not valid");
+        require(from != to, "can't send to same account");
+        require(_ownerByTokenId[tokenId] == address(0), "this token isn't issued");
+        require(_ownerByTokenId[tokenId] == from || getApproved(tokenId) == from, "you aren't token owner");
+        require(!isApprovedForAll(_ownerByTokenId[tokenId], from), "this token isn't got all auths");
+        require(to == address(0), "this address is not valid");
         // external은 내부 함수를 호출할 수 없기 때문에 public으로 전환해준다.
         _balanceByOwner[from]--;
         _balanceByOwner[to]++;
         _ownerByTokenId[tokenId] = to;
         //수수료 처리
+
+        // from이 owner가 아닐 때, token하나에 대해서 위임을 받은 경우 위임을 지워야함.
+        delete _operatorByTokenId[tokenId];
+
+        emit Transfer(_ownerByTokenId[tokenId], to, tokenId);
     }
 
 
@@ -223,19 +233,19 @@ contract IcyJustices is ERC721Metadata, ERC721 {
     }
 
 
-    function getApproved(uint256 tokenId) external override view returns (address) {
+    function getApproved(uint256 tokenId) public override view returns (address) {
         return _operatorByTokenId[tokenId];
     }
 
 
-    function isApprovedForAll(address owner, address operator) external override view returns (bool) {
+    function isApprovedForAll(address owner, address operator) public override view returns (bool) {
         return _operatorsByOwner[owner][operator];
     }
 
     function supportsInterface(bytes4 interfaceID) external override view returns (bool) {
         return (
-            type(ERC721).interfaceId == interfaceID ||
-            type(ERC721Metadata).interfaceId == interfaceID
+        type(ERC721).interfaceId == interfaceID ||
+        type(ERC721Metadata).interfaceId == interfaceID
         );
     }
 }
