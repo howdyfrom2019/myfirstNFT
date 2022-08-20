@@ -184,6 +184,7 @@ contract IcyJustices is ERC721Metadata, ERC721 {
         //todo, 예외처리가 필요함.
         //from == to 이면 ㄴ안됨.
         // tokenId가 진짜 발행이 됐나? 소유한 사람이 있는가?
+        //token의 주인과 from이 같은가?
         // from이 token을 소유했는가?
         //from이 소유주가 아니라면, 이 토큰에 대해서 권한 위임을 받았는가?
         // token이 소유주로부터 모든 전권을 ㄹ받았는가?
@@ -191,7 +192,8 @@ contract IcyJustices is ERC721Metadata, ERC721 {
 
         require(from != to, "can't send to same account");
         require(_ownerByTokenId[tokenId] == address(0), "this token isn't issued");
-        require(_ownerByTokenId[tokenId] == from || getApproved(tokenId) == from, "you aren't token owner");
+        require(from == _ownerByTokenId[tokenId], "invalid from");
+        require(_ownerByTokenId[tokenId] == msg.sender || getApproved(tokenId) == msg.sender, "you aren't token owner");
         require(!isApprovedForAll(_ownerByTokenId[tokenId], from), "this token isn't got all auths");
         require(to == address(0), "this address is not valid");
         // external은 내부 함수를 호출할 수 없기 때문에 public으로 전환해준다.
@@ -227,7 +229,7 @@ contract IcyJustices is ERC721Metadata, ERC721 {
 
     function setApprovalForAll(address operator, bool approved) external override {
         address owner = msg.sender;
-        _operatorsByOwner[operator][operator] = approved;
+        _operatorsByOwner[owner][operator] = approved;
 
         emit ApprovalForAll(owner, operator, approved);
     }
